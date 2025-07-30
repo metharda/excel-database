@@ -166,18 +166,20 @@ class DatabaseCLI:
             self.print_error(f"Delete error: {str(e)}")
 
     # Added error handling for API requests
-    def safe_api_request(url, method="GET", data=None):
+    def safe_api_request(self, url, method="GET", data=None, params=None, files=None):
         try:
             if method == "GET":
-                response = requests.get(url)
+                response = requests.get(url, params=params)
             elif method == "POST":
-                response = requests.post(url, json=data)
+                response = requests.post(url, json=data, files=files)
+            elif method == "DELETE":
+                response = requests.delete(url)
             else:
                 raise ValueError("Unsupported HTTP method")
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(f"{Fore.RED}API request failed: {e}{Style.RESET_ALL}")
+            self.print_error(f"API request failed: {e}")
             return None
 
 
