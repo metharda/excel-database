@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:  
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: api-server
+    container_name: excel-db-backend
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/data:/app/data
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=app.py
+      - REDIS_URL=redis://redis:6379
+    restart: unless-stopped
+    depends_on:
+      - redis
+    networks:
+      - excel-db-network
+    stop_grace_period: 3s
+  
+  cli-terminal:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: cli-terminal
+    container_name: excel-db-cli
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    environment:
+      - CLI_API_URL=http://backend:5000/api
+    restart: unless-stopped
+    networks:
+      - excel-db-network
+  
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: excel-db-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - cli-terminal
+    restart: unless-stopped
+    networks:
+      - excel-db-network
+  
+  redis:
+    image: redis:7-alpine
+    container_name: excel-db-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    networks:
+      - excel-db-network
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  excel-db-network:
+    driver: bridge
