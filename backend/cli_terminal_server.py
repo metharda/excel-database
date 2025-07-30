@@ -6,18 +6,19 @@ import os
 import sys
 from pathlib import Path
 
+
 class CLITerminalServer:
     def __init__(self):
         self.connections = set()
         self.cli_path = Path(__file__).parent / "cli.py"
-        
+
     async def register(self, websocket):
         self.connections.add(websocket)
         await self.send_welcome_message(websocket)
-        
+
     async def unregister(self, websocket):
         self.connections.discard(websocket)
-        
+
     async def send_welcome_message(self, websocket):
         welcome_msg = {
             "type": "output",
@@ -39,18 +40,16 @@ class CLITerminalServer:
 ╚══════════════════════════════════════════════════════════════╝
 
 Excel Database CLI > """,
-            "prompt": True
+            "prompt": True,
         }
         await websocket.send(json.dumps(welcome_msg))
-        
+
     async def execute_command(self, command, websocket):
         if command.strip() == "clear":
-            await websocket.send(json.dumps({
-                "type": "clear"
-            }))
+            await websocket.send(json.dumps({"type": "clear"}))
             await self.send_welcome_message(websocket)
             return
-            
+
         if command.strip() == "help":
             help_msg = {
                 "type": "output",
@@ -76,55 +75,63 @@ export sales_data
 delete old_table
 
 Excel Database CLI > """,
-                "prompt": True
+                "prompt": True,
             }
             await websocket.send(json.dumps(help_msg))
             return
-            
+
         try:
             cmd_parts = command.strip().split()
             if not cmd_parts:
-                await websocket.send(json.dumps({
-                    "type": "output",
-                    "data": "Excel Database CLI > ",
-                    "prompt": True
-                }))
+                await websocket.send(
+                    json.dumps(
+                        {
+                            "type": "output",
+                            "data": "Excel Database CLI > ",
+                            "prompt": True,
+                        }
+                    )
+                )
                 return
-                
+
             full_command = [sys.executable, str(self.cli_path)] + cmd_parts
-            
+
             process = await asyncio.create_subprocess_exec(
                 *full_command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env={**os.environ, "PYTHONUNBUFFERED": "1"}
+                env={**os.environ, "PYTHONUNBUFFERED": "1"},
             )
-            
+
             stdout, stderr = await process.communicate()
-            
+
             output = ""
             if stdout:
-                output += stdout.decode('utf-8')
+                output += stdout.decode("utf-8")
             if stderr:
                 output += f"\nError: {stderr.decode('utf-8')}"
-                
+
             if not output.strip():
                 output = "Command executed successfully."
-                
-            await websocket.send(json.dumps({
-                "type": "output", 
-                "data": output + "\n\nExcel Database CLI > ",
-                "prompt": True
-            }))
-            
+
+            await websocket.send(
+                json.dumps(
+                    {
+                        "type": "output",
+                        "data": output + "\n\nExcel Database CLI > ",
+                        "prompt": True,
+                    }
+                )
+            )
+
         except Exception as e:
             error_msg = {
                 "type": "output",
                 "data": f"Error while executing command: {str(e)}\n\nExcel Database CLI > ",
-                "prompt": True
+                "prompt": True,
             }
             await websocket.send(json.dumps(error_msg))
-            
+
     async def handle_client(self, websocket, path):
         await self.register(websocket)
         try:
@@ -137,24 +144,22 @@ Excel Database CLI > """,
         finally:
             await self.unregister(websocket)
 
+
 async def main():
     server = CLITerminalServer()
-    
+
     print("CLI Terminal Server is starting...")
     print("WebSocket server is listening on port 8080...")
-    
+
     start_server = websockets.serve(
-        server.handle_client,
-        "0.0.0.0", 
-        8080,
-        ping_interval=20,
-        ping_timeout=10
+        server.handle_client, "0.0.0.0", 8080, ping_interval=20, ping_timeout=10
     )
-    
+
     await start_server
     print("CLI Terminal Server is ready!")
-    
+
     await asyncio.Future()
+
 
 if __name__ == "__main__":
     try:

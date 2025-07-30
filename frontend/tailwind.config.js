@@ -1,4 +1,4 @@
-const defaultConfig = require("shadcn/ui/tailwind.config")
+const defaultConfig = require("shadcn/ui/tailwind.config");
 
 module.exports = {
   ...defaultConfig,
@@ -38,4 +38,4 @@ module.exports = {
     },
   },
   plugins: [...defaultConfig.plugins, require("tailwindcss-animate")],
-}
+};

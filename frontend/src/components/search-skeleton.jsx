@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
 const SearchResultsSkeleton = () => {
   return (
     <div className="space-y-6">
       {[1, 2].map((tableIndex) => (
-        <div key={tableIndex} className="mb-6">          
+        <div key={tableIndex} className="mb-6">
           <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
             <div className="flex items-center">
               <div className="h-5 w-5 bg-gray-200 rounded mr-2 animate-pulse"></div>
@@ -13,9 +13,9 @@ const SearchResultsSkeleton = () => {
             </div>
             <div className="h-7 w-20 bg-gray-200 rounded animate-pulse"></div>
           </div>
-          
+
           <div className="overflow-x-auto">
-            <div className="w-full border border-gray-200 rounded-lg">              
+            <div className="w-full border border-gray-200 rounded-lg">
               <div className="bg-gray-50 border-b border-gray-200">
                 <div className="flex">
                   {[1, 2, 3, 4].map((col) => (
@@ -24,7 +24,7 @@ const SearchResultsSkeleton = () => {
                     </div>
                   ))}
                 </div>
-              </div>              
+              </div>
               {[1, 2, 3].map((row) => (
                 <div
                   key={row}
@@ -41,12 +41,14 @@ const SearchResultsSkeleton = () => {
               ))}
             </div>
           </div>
-          
-          {tableIndex < 2 && <div className="mt-6 border-t-2 border-dashed border-gray-300"></div>}
+
+          {tableIndex < 2 && (
+            <div className="mt-6 border-t-2 border-dashed border-gray-300"></div>
+          )}
         </div>
       ))}
     </div>
-  )
-}
+  );
+};
 
-export default SearchResultsSkeleton
+export default SearchResultsSkeleton;

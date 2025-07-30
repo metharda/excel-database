@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef } from "react"
-import { Terminal, X, Maximize2, Minimize2 } from "lucide-react"
+import { useState, useEffect, useRef } from "react";
+import { Terminal, X, Maximize2, Minimize2 } from "lucide-react";
 
 const translations = {
   en: {
@@ -36,90 +36,93 @@ const translations = {
     connectionError: "\nBağlantı hatası oluştu.\n",
     wsError: "\nWebSocket bağlantısı kurulamadı: ",
   },
-}
+};
 
 const WebTerminal = ({ isOpen, onClose }) => {
-  const [output, setOutput] = useState("")
-  const [input, setInput] = useState("")
-  const [isConnected, setIsConnected] = useState(false)
-  const [isMaximized, setIsMaximized] = useState(false)
-  const [commandHistory, setCommandHistory] = useState([])
-  const [historyIndex, setHistoryIndex] = useState(-1)
-  const [lang, setLang] = useState("en")
+  const [output, setOutput] = useState("");
+  const [input, setInput] = useState("");
+  const [isConnected, setIsConnected] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
+  const [commandHistory, setCommandHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [lang, setLang] = useState("en");
 
-  const t = translations[lang]
+  const t = translations[lang];
 
-  const wsRef = useRef(null)
-  const terminalRef = useRef(null)
-  const inputRef = useRef(null)
+  const wsRef = useRef(null);
+  const terminalRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
-      connectWebSocket()
+      connectWebSocket();
       setTimeout(() => {
         if (inputRef.current) {
-          inputRef.current.focus()
+          inputRef.current.focus();
         }
-      }, 100)
+      }, 100);
     } else {
-      disconnectWebSocket()
+      disconnectWebSocket();
     }
     return () => {
-      disconnectWebSocket()
-    }
-  }, [isOpen])
+      disconnectWebSocket();
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
-  }, [output])
+  }, [output]);
 
   const connectWebSocket = () => {
     try {
-      let wsUrl
-      if (window.location.hostname === "localhost" && window.location.port === "5173") {
-        wsUrl = "ws://localhost:8080/"
+      let wsUrl;
+      if (
+        window.location.hostname === "localhost" &&
+        window.location.port === "5173"
+      ) {
+        wsUrl = "ws://localhost:8080/";
       } else {
-        wsUrl = `ws://${window.location.hostname}:8080/`
+        wsUrl = `ws://${window.location.hostname}:8080/`;
       }
-      wsRef.current = new WebSocket(wsUrl)
+      wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = () => {
-        setIsConnected(true)
-        setOutput(t.connectionEstablished)
-      }
+        setIsConnected(true);
+        setOutput(t.connectionEstablished);
+      };
 
       wsRef.current.onmessage = (event) => {
-        const data = JSON.parse(event.data)
+        const data = JSON.parse(event.data);
         if (data.type === "clear") {
-          setOutput("")
+          setOutput("");
         } else if (data.type === "output") {
-          setOutput((prev) => prev + data.data)
+          setOutput((prev) => prev + data.data);
         }
-      }
+      };
 
       wsRef.current.onclose = () => {
-        setIsConnected(false)
-        setOutput((prev) => prev + t.connectionClosed)
-      }
+        setIsConnected(false);
+        setOutput((prev) => prev + t.connectionClosed);
+      };
 
       wsRef.current.onerror = () => {
-        setIsConnected(false)
-        setOutput((prev) => prev + t.connectionError)
-      }
+        setIsConnected(false);
+        setOutput((prev) => prev + t.connectionError);
+      };
     } catch (error) {
-      setOutput((prev) => prev + `${t.wsError}${error.message}\n`)
+      setOutput((prev) => prev + `${t.wsError}${error.message}\n`);
     }
-  }
+  };
 
   const disconnectWebSocket = () => {
     if (wsRef.current) {
-      wsRef.current.close()
-      wsRef.current = null
+      wsRef.current.close();
+      wsRef.current = null;
     }
-    setIsConnected(false)
-  }
+    setIsConnected(false);
+  };
 
   const sendCommand = (command) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -128,48 +131,51 @@ const WebTerminal = ({ isOpen, onClose }) => {
           type: "command",
           command: command,
         }),
-      )
+      );
       if (command.trim() && command.trim() !== "clear") {
         setCommandHistory((prev) => {
-          const newHistory = [command.trim(), ...prev.filter((cmd) => cmd !== command.trim())]
-          return newHistory.slice(0, 50)
-        })
+          const newHistory = [
+            command.trim(),
+            ...prev.filter((cmd) => cmd !== command.trim()),
+          ];
+          return newHistory.slice(0, 50);
+        });
       }
-      setHistoryIndex(-1)
+      setHistoryIndex(-1);
     }
-  }
+  };
 
   const handleSubmit = (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (input.trim()) {
-      setOutput((prev) => prev + input + "\n")
-      sendCommand(input.trim())
-      setInput("")
+      setOutput((prev) => prev + input + "\n");
+      sendCommand(input.trim());
+      setInput("");
     }
-  }
+  };
 
   const handleKeyDown = (e) => {
     if (e.key === "ArrowUp") {
-      e.preventDefault()
+      e.preventDefault();
       if (historyIndex < commandHistory.length - 1) {
-        const newIndex = historyIndex + 1
-        setHistoryIndex(newIndex)
-        setInput(commandHistory[newIndex] || "")
+        const newIndex = historyIndex + 1;
+        setHistoryIndex(newIndex);
+        setInput(commandHistory[newIndex] || "");
       }
     } else if (e.key === "ArrowDown") {
-      e.preventDefault()
+      e.preventDefault();
       if (historyIndex > 0) {
-        const newIndex = historyIndex - 1
-        setHistoryIndex(newIndex)
-        setInput(commandHistory[newIndex] || "")
+        const newIndex = historyIndex - 1;
+        setHistoryIndex(newIndex);
+        setInput(commandHistory[newIndex] || "");
       } else if (historyIndex === 0) {
-        setHistoryIndex(-1)
-        setInput("")
+        setHistoryIndex(-1);
+        setInput("");
       }
     }
-  }
+  };
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <div
@@ -177,15 +183,21 @@ const WebTerminal = ({ isOpen, onClose }) => {
     >
       <div
         className={`bg-gray-900 rounded-lg shadow-2xl flex flex-col ${
-          isMaximized ? "w-full h-full rounded-none" : "w-full max-w-4xl h-3/4 max-h-[600px]"
+          isMaximized
+            ? "w-full h-full rounded-none"
+            : "w-full max-w-4xl h-3/4 max-h-[600px]"
         }`}
       >
         <div className="flex items-center justify-between p-3 bg-gray-800 rounded-t-lg border-b border-gray-700">
           <div className="flex items-center gap-3">
             <Terminal className="h-5 w-5 text-green-400" />
             <span className="text-white font-medium">{t.title}</span>
-            <div className={`flex items-center gap-2 text-sm ${isConnected ? "text-green-400" : "text-red-400"}`}>
-              <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-400" : "bg-red-400"}`}></div>
+            <div
+              className={`flex items-center gap-2 text-sm ${isConnected ? "text-green-400" : "text-red-400"}`}
+            >
+              <div
+                className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-400" : "bg-red-400"}`}
+              ></div>
               {isConnected ? t.connected : t.disconnected}
             </div>
           </div>
@@ -204,7 +216,11 @@ const WebTerminal = ({ isOpen, onClose }) => {
               className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
               title={isMaximized ? t.minimize : t.maximize}
             >
-              {isMaximized ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              {isMaximized ? (
+                <Minimize2 className="h-4 w-4" />
+              ) : (
+                <Maximize2 className="h-4 w-4" />
+              )}
             </button>
             <button
               onClick={onClose}
@@ -254,7 +270,7 @@ const WebTerminal = ({ isOpen, onClose }) => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default WebTerminal
+export default WebTerminal;

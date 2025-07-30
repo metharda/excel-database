@@ -1,28 +1,39 @@
-"use client"
+"use client";
 
 export const LoadingSpinner = ({ size = "md", text = "Yükleniyor..." }) => {
   const sizes = {
     sm: "h-4 w-4",
     md: "h-8 w-8",
     lg: "h-12 w-12",
-  }
+  };
 
   return (
     <div className="flex items-center justify-center">
       <div className="text-center">
-        <div className={`animate-spin rounded-full border-b-2 border-primary-600 ${sizes[size]} mx-auto mb-2`}></div>
+        <div
+          className={`animate-spin rounded-full border-b-2 border-primary-600 ${sizes[size]} mx-auto mb-2`}
+        ></div>
         <p className="text-gray-500 text-sm">{text}</p>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export const ErrorMessage = ({ title = "Bir hata oluştu", message, onRetry }) => {
+export const ErrorMessage = ({
+  title = "Bir hata oluştu",
+  message,
+  onRetry,
+}) => {
   return (
     <div className="text-center py-8">
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
         <div className="text-red-600 mb-2">
-          <svg className="h-12 w-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="h-12 w-12 mx-auto"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -43,8 +54,8 @@ export const ErrorMessage = ({ title = "Bir hata oluştu", message, onRetry }) =
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
 export const EmptyState = ({ icon: Icon, title, description, action }) => {
   return (
@@ -54,17 +65,21 @@ export const EmptyState = ({ icon: Icon, title, description, action }) => {
       {description && <p className="text-gray-500 mb-4">{description}</p>}
       {action}
     </div>
-  )
-}
+  );
+};
 
-
-export const ModernCheckbox = ({ checked, onChange, disabled = false, className = "" }) => {
+export const ModernCheckbox = ({
+  checked,
+  onChange,
+  disabled = false,
+  className = "",
+}) => {
   const handleClick = (e) => {
-    e.stopPropagation() 
+    e.stopPropagation();
     if (!disabled && onChange) {
-      onChange(e)
+      onChange(e);
     }
-  }
+  };
 
   return (
     <div
@@ -74,21 +89,33 @@ export const ModernCheckbox = ({ checked, onChange, disabled = false, className 
       <input
         type="checkbox"
         checked={checked}
-        onChange={() => {}} 
+        onChange={() => {}}
         disabled={disabled}
         className="sr-only"
       />
       <div
         className={`w-5 h-5 min-w-[20px] min-h-[20px] flex-shrink-0 rounded-md border-2 transition-all duration-200 flex items-center justify-center ${
-          checked ? "bg-primary-600 border-primary-600 shadow-md" : "bg-white border-gray-300 hover:border-primary-400"
+          checked
+            ? "bg-primary-600 border-primary-600 shadow-md"
+            : "bg-white border-gray-300 hover:border-primary-400"
         } ${disabled ? "opacity-50" : ""}`}
       >
         {checked && (
-          <svg className="w-3 h-3 text-white flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          <svg
+            className="w-3 h-3 text-white flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={3}
+              d="M5 13l4 4L19 7"
+            />
           </svg>
         )}
       </div>
     </div>
-  )
-}
+  );
+};

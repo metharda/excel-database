@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef } from "react";
 import {
   Search,
   Upload,
@@ -14,13 +14,13 @@ import {
   Terminal,
   Globe,
   ExternalLink,
-} from "lucide-react"
-import WebTerminal from "./components/web-terminal"
-import { useToast } from "./components/toast"
-import { ModernCheckbox } from "./components/ui-components"
-import * as XLSX from "xlsx"
+} from "lucide-react";
+import WebTerminal from "./components/web-terminal";
+import { useToast } from "./components/toast";
+import { ModernCheckbox } from "./components/ui-components";
+import * as XLSX from "xlsx";
 
-const API_URL = "http://localhost:5001/api"
+const API_URL = "http://localhost:5001/api";
 
 const translations = {
   en: {
@@ -87,7 +87,8 @@ const translations = {
     dragDropHere: "Dosyayı bırakın",
     dragDropTitle: "Excel Dosyasını Bırakın",
     dragDropDescription: "Excel dosyanızı buraya sürükleyip bırakın",
-    invalidFileType: "Lütfen geçerli bir Excel dosyası (.xlsx, .xls, .csv) seçin",
+    invalidFileType:
+      "Lütfen geçerli bir Excel dosyası (.xlsx, .xls, .csv) seçin",
     tables: "Tablolar",
     noTables: "Henüz tablo yok",
     startByUploading: "Excel dosyası yükleyerek başlayın",
@@ -131,479 +132,485 @@ const translations = {
     exportComplete: "Seçili satırlar başarıyla dışa aktarıldı",
     exportFailed: "Dışa aktarma başarısız",
   },
-}
+};
 
 export default function DatabaseApp() {
-  const [tables, setTables] = useState([])
-  const [selectedTable, setSelectedTable] = useState(null)
-  const [tableData, setTableData] = useState(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [globalSearchQuery, setGlobalSearchQuery] = useState("")
-  const [globalSearchResults, setGlobalSearchResults] = useState([])
-  const [filteredSearchResults, setFilteredSearchResults] = useState([])
-  const [resultsFilterQuery, setResultsFilterQuery] = useState("")
-  const [selectedRows, setSelectedRows] = useState(new Set())
-  const [currentPage, setCurrentPage] = useState(1)
-  const [uploading, setUploading] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [searchLoading, setSearchLoading] = useState(false)
-  const [filterLoading, setFilterLoading] = useState(false) // Yeni state - sadece filtreleme için
-  const [pageLoading, setPageLoading] = useState(false)
-  const [isTerminalOpen, setIsTerminalOpen] = useState(false)
-  const [language, setLanguage] = useState("en")
-  const [hasSearched, setHasSearched] = useState(false) 
-  const [lastSearchTerm, setLastSearchTerm] = useState("") 
-  const [dragActive, setDragActive] = useState(false)
-  const [dragCounter, setDragCounter] = useState(0)
+  const [tables, setTables] = useState([]);
+  const [selectedTable, setSelectedTable] = useState(null);
+  const [tableData, setTableData] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+  const [globalSearchResults, setGlobalSearchResults] = useState([]);
+  const [filteredSearchResults, setFilteredSearchResults] = useState([]);
+  const [resultsFilterQuery, setResultsFilterQuery] = useState("");
+  const [selectedRows, setSelectedRows] = useState(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
+  const [language, setLanguage] = useState("en");
+  const [hasSearched, setHasSearched] = useState(false);
+  const [lastSearchTerm, setLastSearchTerm] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+  const [dragCounter, setDragCounter] = useState(0);
 
-  const searchResultsRef = useRef(null)
-  const fileInputRef = useRef(null)
-  const { addToast, ToastContainer } = useToast()
-  const t = translations[language]
+  const searchResultsRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const { addToast, ToastContainer } = useToast();
+  const t = translations[language];
 
   useEffect(() => {
-    fetchTables()
-    
-    // Window seviyesinde drag event'leri ekle
+    fetchTables();
+
     const handleWindowDragEnter = (e) => {
-      e.preventDefault()
-      if (e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
-        setDragCounter(prev => prev + 1)
-        setDragActive(true)
+      e.preventDefault();
+      if (e.dataTransfer.types && e.dataTransfer.types.includes("Files")) {
+        setDragCounter((prev) => prev + 1);
+        setDragActive(true);
       }
-    }
+    };
 
     const handleWindowDragLeave = (e) => {
-      e.preventDefault()
-      setDragCounter(prev => {
-        const newCount = prev - 1
+      e.preventDefault();
+      setDragCounter((prev) => {
+        const newCount = prev - 1;
         if (newCount <= 0) {
-          setDragActive(false)
-          return 0
+          setDragActive(false);
+          return 0;
         }
-        return newCount
-      })
-    }
+        return newCount;
+      });
+    };
 
     const handleWindowDragOver = (e) => {
-      e.preventDefault()
-      if (e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
-        e.dataTransfer.dropEffect = 'copy'
+      e.preventDefault();
+      if (e.dataTransfer.types && e.dataTransfer.types.includes("Files")) {
+        e.dataTransfer.dropEffect = "copy";
       }
-    }
+    };
 
     const handleWindowDrop = (e) => {
-      e.preventDefault()
-      setDragActive(false)
-      setDragCounter(0)
-      
-      const files = e.dataTransfer.files
+      e.preventDefault();
+      setDragActive(false);
+      setDragCounter(0);
+
+      const files = e.dataTransfer.files;
       if (files && files.length > 0) {
-        const file = files[0]
-        if (file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || 
-            file.type === "application/vnd.ms-excel" || 
-            file.name.endsWith('.xlsx') || 
-            file.name.endsWith('.xls') || 
-            file.name.endsWith('.csv')) {
-          handleFileUpload(file)
+        const file = files[0];
+        if (
+          file.type ===
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+          file.type === "application/vnd.ms-excel" ||
+          file.name.endsWith(".xlsx") ||
+          file.name.endsWith(".xls") ||
+          file.name.endsWith(".csv")
+        ) {
+          handleFileUpload(file);
         } else {
-          addToast(t.invalidFileType, "error")
+          addToast(t.invalidFileType, "error");
         }
       }
-    }
+    };
 
-    window.addEventListener('dragenter', handleWindowDragEnter)
-    window.addEventListener('dragleave', handleWindowDragLeave)
-    window.addEventListener('dragover', handleWindowDragOver)
-    window.addEventListener('drop', handleWindowDrop)
+    window.addEventListener("dragenter", handleWindowDragEnter);
+    window.addEventListener("dragleave", handleWindowDragLeave);
+    window.addEventListener("dragover", handleWindowDragOver);
+    window.addEventListener("drop", handleWindowDrop);
 
     return () => {
-      window.removeEventListener('dragenter', handleWindowDragEnter)
-      window.removeEventListener('dragleave', handleWindowDragLeave)
-      window.removeEventListener('dragover', handleWindowDragOver)
-      window.removeEventListener('drop', handleWindowDrop)
-    }
-  }, [t.invalidFileType])
+      window.removeEventListener("dragenter", handleWindowDragEnter);
+      window.removeEventListener("dragleave", handleWindowDragLeave);
+      window.removeEventListener("dragover", handleWindowDragOver);
+      window.removeEventListener("drop", handleWindowDrop);
+    };
+  }, [t.invalidFileType]);
 
-  
   useEffect(() => {
-    setResultsFilterQuery(globalSearchQuery)
-  }, [globalSearchQuery])
+    setResultsFilterQuery(globalSearchQuery);
+  }, [globalSearchQuery]);
 
-  
   useEffect(() => {
     if (resultsFilterQuery && resultsFilterQuery !== globalSearchQuery) {
       const timeoutId = setTimeout(async () => {
         if (!resultsFilterQuery.trim()) {
-          setFilteredSearchResults([])
-          return
+          setFilteredSearchResults([]);
+          return;
         }
 
-        // Sadece 500ms'den uzun sürecek aramalarda loading göster
         let loadingTimeout = setTimeout(() => {
-          setFilterLoading(true)
-        }, 500)
+          setFilterLoading(true);
+        }, 500);
 
         try {
-          const response = await fetch(`${API_URL}/search?q=${encodeURIComponent(resultsFilterQuery)}&limit=5000`)
-          const data = await response.json()
-          
-          // Loading timeout'u temizle
-          clearTimeout(loadingTimeout)
-          
-          setFilteredSearchResults(data.results || [])
+          const response = await fetch(
+            `${API_URL}/search?q=${encodeURIComponent(resultsFilterQuery)}&limit=5000`,
+          );
+          const data = await response.json();
+
+          clearTimeout(loadingTimeout);
+
+          setFilteredSearchResults(data.results || []);
         } catch (error) {
-          clearTimeout(loadingTimeout)
-          console.error(t.searchError, error)
-          setFilteredSearchResults([])
+          clearTimeout(loadingTimeout);
+          console.error(t.searchError, error);
+          setFilteredSearchResults([]);
         } finally {
-          setFilterLoading(false)
+          setFilterLoading(false);
         }
-      }, 300)
+      }, 300);
 
-      return () => clearTimeout(timeoutId)
+      return () => clearTimeout(timeoutId);
     } else {
-      setFilteredSearchResults(globalSearchResults)
+      setFilteredSearchResults(globalSearchResults);
     }
-  }, [resultsFilterQuery, globalSearchResults, globalSearchQuery])
+  }, [resultsFilterQuery, globalSearchResults, globalSearchQuery]);
 
-  
   useEffect(() => {
-    setSelectedRows(new Set())
-  }, [selectedTable, currentPage])
+    setSelectedRows(new Set());
+  }, [selectedTable, currentPage]);
 
   const fetchTables = async () => {
     try {
-      const response = await fetch(`${API_URL}/tables`)
-      const data = await response.json()
-      setTables(data)
+      const response = await fetch(`${API_URL}/tables`);
+      const data = await response.json();
+      setTables(data);
     } catch (error) {
-      console.error(t.tablesLoadError, error)
-      addToast(t.tablesLoadError, "error")
+      console.error(t.tablesLoadError, error);
+      addToast(t.tablesLoadError, "error");
     }
-  }
+  };
 
   const fetchTableData = async (tableName, page = 1, search = "") => {
-    setLoading(true)
+    setLoading(true);
     try {
       const params = new URLSearchParams({
         page: page.toString(),
         per_page: "20",
         search: search,
-      })
-      const response = await fetch(`${API_URL}/tables/${tableName}?${params}`)
-      const data = await response.json()
-      setTableData(data)
-      setCurrentPage(page)
+      });
+      const response = await fetch(`${API_URL}/tables/${tableName}?${params}`);
+      const data = await response.json();
+      setTableData(data);
+      setCurrentPage(page);
     } catch (error) {
-      console.error(t.tableDataLoadError, error)
-      addToast(t.tableDataLoadError, "error")
+      console.error(t.tableDataLoadError, error);
+      addToast(t.tableDataLoadError, "error");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleTableSelect = (tableName) => {
-    setSelectedTable(tableName)
-    setSearchQuery("")
-    setSelectedRows(new Set())
-    fetchTableData(tableName)
+    setSelectedTable(tableName);
+    setSearchQuery("");
+    setSelectedRows(new Set());
+    fetchTableData(tableName);
 
-    
     setTimeout(() => {
-      const tableElement = document.querySelector(".flex-1.bg-white.rounded-xl")
+      const tableElement = document.querySelector(
+        ".flex-1.bg-white.rounded-xl",
+      );
       if (tableElement) {
         tableElement.scrollIntoView({
           behavior: "smooth",
           block: "start",
-        })
+        });
       }
-    }, 100)
-  }
+    }, 100);
+  };
 
   const handleSearch = (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (selectedTable) {
-      fetchTableData(selectedTable, 1, searchQuery)
+      fetchTableData(selectedTable, 1, searchQuery);
     }
-  }
+  };
 
   const handleGlobalSearch = async (e) => {
-    e.preventDefault()
-    if (!globalSearchQuery.trim()) return
+    e.preventDefault();
+    if (!globalSearchQuery.trim()) return;
 
-    // Sadece 300ms'den uzun sürecek aramalarda loading göster
     let loadingTimeout = setTimeout(() => {
-      setSearchLoading(true)
-    }, 300)
+      setSearchLoading(true);
+    }, 300);
 
-    setHasSearched(true)
-    setLastSearchTerm(globalSearchQuery)
+    setHasSearched(true);
+    setLastSearchTerm(globalSearchQuery);
 
     try {
-      const response = await fetch(`${API_URL}/search?q=${encodeURIComponent(globalSearchQuery)}&limit=5000`)
-      const data = await response.json()
-      
-      // Loading timeout'u temizle
-      clearTimeout(loadingTimeout)
-      
-      console.log('Search response:', data) 
-      
-      setGlobalSearchResults(data.results || [])
-      setFilteredSearchResults(data.results || [])
+      const response = await fetch(
+        `${API_URL}/search?q=${encodeURIComponent(globalSearchQuery)}&limit=5000`,
+      );
+      const data = await response.json();
 
-      
+      clearTimeout(loadingTimeout);
+
+      console.log("Search response:", data);
+
+      setGlobalSearchResults(data.results || []);
+      setFilteredSearchResults(data.results || []);
+
       if (data.results && data.results.length > 0) {
         setTimeout(() => {
           if (searchResultsRef.current) {
             searchResultsRef.current.scrollIntoView({
               behavior: "smooth",
               block: "start",
-            })
+            });
           }
-        }, 100)
+        }, 100);
       }
     } catch (error) {
-      clearTimeout(loadingTimeout)
-      console.error(t.searchError, error)
-      addToast(t.searchError, "error")
-      setGlobalSearchResults([])
-      setFilteredSearchResults([])
+      clearTimeout(loadingTimeout);
+      console.error(t.searchError, error);
+      addToast(t.searchError, "error");
+      setGlobalSearchResults([]);
+      setFilteredSearchResults([]);
     } finally {
-      setSearchLoading(false)
+      setSearchLoading(false);
     }
-  }
+  };
 
   const handleFileUpload = async (file) => {
-    if (!file) return
+    if (!file) return;
 
-    setUploading(true)
-    const formData = new FormData()
-    formData.append("file", file)
+    setUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
 
     try {
       const response = await fetch(`${API_URL}/upload`, {
         method: "POST",
         body: formData,
-      })
-      const data = await response.json()
+      });
+      const data = await response.json();
       if (response.ok) {
-        addToast(`${t.fileUploadSuccess} ${data.tables.join(", ")}`, "success")
-        fetchTables()
+        addToast(`${t.fileUploadSuccess} ${data.tables.join(", ")}`, "success");
+        fetchTables();
       } else {
-        addToast(`${t.error} ${data.error}`, "error")
+        addToast(`${t.error} ${data.error}`, "error");
       }
     } catch (error) {
-      addToast(t.uploadError + " " + error.message, "error")
+      addToast(t.uploadError + " " + error.message, "error");
     } finally {
-      setUploading(false)
+      setUploading(false);
     }
-  }
+  };
 
   const handleFileInputChange = (e) => {
-    const file = e.target.files[0]
+    const file = e.target.files[0];
     if (file) {
-      handleFileUpload(file)
+      handleFileUpload(file);
     }
-  }
+  };
 
   const handleDragEnter = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    // Sadece dosya sürükleniyorsa aktifleştir
-    if (e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
-      setDragCounter(prev => prev + 1)
-      setDragActive(true)
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.dataTransfer.types && e.dataTransfer.types.includes("Files")) {
+      setDragCounter((prev) => prev + 1);
+      setDragActive(true);
     }
-  }
+  };
 
   const handleDragLeave = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    setDragCounter(prev => {
-      const newCount = prev - 1
+    e.preventDefault();
+    e.stopPropagation();
+
+    setDragCounter((prev) => {
+      const newCount = prev - 1;
       if (newCount <= 0) {
-        setDragActive(false)
-        return 0
+        setDragActive(false);
+        return 0;
       }
-      return newCount
-    })
-  }
+      return newCount;
+    });
+  };
 
   const handleDragOver = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    // Dosya sürükleme işlemini kabul et
-    if (e.dataTransfer.types && e.dataTransfer.types.includes('Files')) {
-      e.dataTransfer.dropEffect = 'copy'
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.dataTransfer.types && e.dataTransfer.types.includes("Files")) {
+      e.dataTransfer.dropEffect = "copy";
     }
-  }
+  };
 
   const handleDrop = (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    setDragCounter(0)
-    
-    const files = e.dataTransfer.files
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    setDragCounter(0);
+
+    const files = e.dataTransfer.files;
     if (files && files.length > 0) {
-      const file = files[0]
-      if (file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || 
-          file.type === "application/vnd.ms-excel" || 
-          file.name.endsWith('.xlsx') || 
-          file.name.endsWith('.xls') || 
-          file.name.endsWith('.csv')) {
-        handleFileUpload(file)
+      const file = files[0];
+      if (
+        file.type ===
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        file.type === "application/vnd.ms-excel" ||
+        file.name.endsWith(".xlsx") ||
+        file.name.endsWith(".xls") ||
+        file.name.endsWith(".csv")
+      ) {
+        handleFileUpload(file);
       } else {
-        addToast(t.invalidFileType, "error")
+        addToast(t.invalidFileType, "error");
       }
     }
-  }
+  };
 
   const handleExport = async (tableName) => {
     try {
-      addToast(t.downloadingFile, "info")
-      const response = await fetch(`${API_URL}/export/${tableName}`)
+      addToast(t.downloadingFile, "info");
+      const response = await fetch(`${API_URL}/export/${tableName}`);
 
       if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement("a")
-        link.href = url
-        link.download = `${tableName}.xlsx`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(url)
-        addToast(t.downloadComplete, "success")
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${tableName}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        addToast(t.downloadComplete, "success");
       } else {
-        throw new Error("Download failed")
+        throw new Error("Download failed");
       }
     } catch (error) {
-      console.error(t.exportError, error)
-      addToast(t.downloadFailed, "error")
+      console.error(t.exportError, error);
+      addToast(t.downloadFailed, "error");
     }
-  }
+  };
 
   const handleExportSelected = async () => {
-    if (selectedRows.size === 0) return
+    if (selectedRows.size === 0) return;
 
     try {
-      addToast(t.exportingSelected, "info")
+      addToast(t.exportingSelected, "info");
 
-      const selectedData = tableData.records.filter((record) => selectedRows.has(record.id))
+      const selectedData = tableData.records.filter((record) =>
+        selectedRows.has(record.id),
+      );
 
-      
-      const wb = XLSX.utils.book_new()
+      const wb = XLSX.utils.book_new();
       const wsData = [
-        tableData.columns, 
-        ...selectedData.map((record) => tableData.columns.map((col) => record.data[col] || "")),
-      ]
-      const ws = XLSX.utils.aoa_to_sheet(wsData)
+        tableData.columns,
+        ...selectedData.map((record) =>
+          tableData.columns.map((col) => record.data[col] || ""),
+        ),
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-      
-      XLSX.utils.book_append_sheet(wb, ws, "Selected Data")
+      XLSX.utils.book_append_sheet(wb, ws, "Selected Data");
 
-      
-      XLSX.writeFile(wb, `${selectedTable}_selected.xlsx`)
+      XLSX.writeFile(wb, `${selectedTable}_selected.xlsx`);
 
-      addToast(t.exportComplete, "success")
+      addToast(t.exportComplete, "success");
     } catch (error) {
-      console.error(t.exportError, error)
-      addToast(t.exportFailed, "error")
+      console.error(t.exportError, error);
+      addToast(t.exportFailed, "error");
     }
-  }
+  };
 
   const handleDelete = async (tableName) => {
-    if (!confirm(`"${tableName}" ${t.confirmDelete}`)) return
+    if (!confirm(`"${tableName}" ${t.confirmDelete}`)) return;
 
     try {
       const response = await fetch(`${API_URL}/delete/${tableName}`, {
         method: "DELETE",
-      })
+      });
       if (response.ok) {
-        addToast(t.tableDeletedSuccess, "success")
-        fetchTables()
+        addToast(t.tableDeletedSuccess, "success");
+        fetchTables();
         if (selectedTable === tableName) {
-          setSelectedTable(null)
-          setTableData(null)
+          setSelectedTable(null);
+          setTableData(null);
         }
       }
     } catch (error) {
-      console.error(t.deleteError, error)
-      addToast(t.deleteError, "error")
+      console.error(t.deleteError, error);
+      addToast(t.deleteError, "error");
     }
-  }
+  };
 
   const handlePageChange = async (newPage) => {
-    if (selectedTable && newPage >= 1 && newPage <= tableData.pages && newPage !== currentPage) {
-      setPageLoading(true)
+    if (
+      selectedTable &&
+      newPage >= 1 &&
+      newPage <= tableData.pages &&
+      newPage !== currentPage
+    ) {
+      setPageLoading(true);
 
-      
-      await new Promise((resolve) => setTimeout(resolve, 150))
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       try {
-        await fetchTableData(selectedTable, newPage, searchQuery)
+        await fetchTableData(selectedTable, newPage, searchQuery);
       } finally {
-        setPageLoading(false)
+        setPageLoading(false);
       }
     }
-  }
+  };
 
   const toggleLanguage = () => {
-    setLanguage(language === "en" ? "tr" : "en")
-  }
+    setLanguage(language === "en" ? "tr" : "en");
+  };
 
   const handleRowSelect = (recordId) => {
-    const newSelected = new Set(selectedRows)
+    const newSelected = new Set(selectedRows);
     if (newSelected.has(recordId)) {
-      newSelected.delete(recordId)
+      newSelected.delete(recordId);
     } else {
-      newSelected.add(recordId)
+      newSelected.add(recordId);
     }
-    setSelectedRows(newSelected)
-  }
+    setSelectedRows(newSelected);
+  };
 
   const handleSelectAll = () => {
     if (selectedRows.size === tableData.records.length) {
-      setSelectedRows(new Set())
+      setSelectedRows(new Set());
     } else {
-      setSelectedRows(new Set(tableData.records.map((record) => record.id)))
+      setSelectedRows(new Set(tableData.records.map((record) => record.id)));
     }
-  }
+  };
 
-  
   const highlightSearchTerm = (text, searchTerm) => {
-    if (!searchTerm || !text) return text
+    if (!searchTerm || !text) return text;
 
-    const regex = new RegExp(`(${searchTerm})`, "gi")
-    const parts = text.toString().split(regex)
+    const regex = new RegExp(`(${searchTerm})`, "gi");
+    const parts = text.toString().split(regex);
 
     return parts.map((part, index) =>
       regex.test(part) ? (
-        <mark key={index} className="bg-yellow-200 text-yellow-900 px-1 rounded">
+        <mark
+          key={index}
+          className="bg-yellow-200 text-yellow-900 px-1 rounded"
+        >
           {part}
         </mark>
       ) : (
         part
       ),
-    )
-  }
+    );
+  };
 
-  
   const groupedSearchResults = filteredSearchResults.reduce((acc, result) => {
     if (!acc[result.table]) {
-      acc[result.table] = []
+      acc[result.table] = [];
     }
-    acc[result.table].push(result)
-    return acc
-  }, {})
+    acc[result.table].push(result);
+    return acc;
+  }, {});
 
   return (
-    <div 
+    <div
       className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100"
       onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
@@ -612,7 +619,6 @@ export default function DatabaseApp() {
     >
       <ToastContainer />
 
-      {/* Drag overlay */}
       {dragActive && (
         <div className="fixed inset-0 bg-emerald-500 bg-opacity-30 z-[9999] flex items-center justify-center backdrop-blur-sm">
           <div className="bg-white p-8 rounded-xl shadow-2xl border-4 border-dashed border-emerald-500 transform scale-110 animate-bounce">
@@ -621,9 +627,7 @@ export default function DatabaseApp() {
               <h3 className="text-xl font-bold text-gray-800 mb-2">
                 {t.dragDropTitle}
               </h3>
-              <p className="text-gray-600">
-                {t.dragDropDescription}
-              </p>
+              <p className="text-gray-600">{t.dragDropDescription}</p>
             </div>
           </div>
         </div>
@@ -633,7 +637,14 @@ export default function DatabaseApp() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <img src="/logo.png" alt="Logo" className="h-10 w-10 mr-3" />
+              <img
+                src="/logo.png"
+                onError={(e) => {
+                  e.target.src = "/logo-example.png";
+                }}
+                alt="Logo"
+                className="h-10 w-10 mr-3"
+              />
               <h1 className="text-xl font-bold text-gray-900">{t.title}</h1>
             </div>
 
@@ -643,7 +654,7 @@ export default function DatabaseApp() {
                   type="text"
                   value={globalSearchQuery}
                   onChange={(e) => {
-                    setGlobalSearchQuery(e.target.value)
+                    setGlobalSearchQuery(e.target.value);
                   }}
                   onKeyDown={(e) => e.key === "Enter" && handleGlobalSearch(e)}
                   placeholder={t.searchAllTables}
@@ -666,7 +677,9 @@ export default function DatabaseApp() {
                 title="Change Language"
               >
                 <Globe className="h-5 w-5 mr-1" />
-                <span className="text-sm font-medium">{language.toUpperCase()}</span>
+                <span className="text-sm font-medium">
+                  {language.toUpperCase()}
+                </span>
               </button>
 
               <button
@@ -675,7 +688,9 @@ export default function DatabaseApp() {
                 title={t.openTerminal}
               >
                 <Terminal className="h-5 w-5 mr-2" />
-                <span className="text-sm font-medium hidden sm:inline">{t.terminal}</span>
+                <span className="text-sm font-medium hidden sm:inline">
+                  {t.terminal}
+                </span>
               </button>
 
               <div
@@ -690,12 +705,11 @@ export default function DatabaseApp() {
                 <label className="flex items-center px-4 py-2 text-white cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2">
                   <Upload className="h-5 w-5 mr-2" />
                   <span className="text-sm font-medium">
-                    {uploading 
-                      ? t.uploading 
-                      : dragActive 
+                    {uploading
+                      ? t.uploading
+                      : dragActive
                         ? t.dragDropHere
-                        : t.uploadExcel
-                    }
+                        : t.uploadExcel}
                   </span>
                   <input
                     ref={fileInputRef}
@@ -722,7 +736,7 @@ export default function DatabaseApp() {
               type="text"
               value={globalSearchQuery}
               onChange={(e) => {
-                setGlobalSearchQuery(e.target.value)
+                setGlobalSearchQuery(e.target.value);
               }}
               onKeyPress={(e) => e.key === "Enter" && handleGlobalSearch(e)}
               placeholder={t.searchAllTables}
@@ -751,7 +765,9 @@ export default function DatabaseApp() {
                 <div className="text-center py-8 text-gray-500">
                   <FileSpreadsheet className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                   <p className="text-sm">{t.noTables}</p>
-                  <p className="text-xs text-gray-400 mt-1">{t.startByUploading}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {t.startByUploading}
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -769,7 +785,9 @@ export default function DatabaseApp() {
                         <div className="flex items-center min-w-0">
                           <FileSpreadsheet className="h-4 w-4 text-gray-500 mr-2 flex-shrink-0" />
                           <div className="min-w-0">
-                            <span className="text-sm font-medium text-gray-700 block truncate">{table.name}</span>
+                            <span className="text-sm font-medium text-gray-700 block truncate">
+                              {table.name}
+                            </span>
                             <span className="text-xs text-gray-500">
                               {table.record_count} {t.records}
                             </span>
@@ -799,7 +817,8 @@ export default function DatabaseApp() {
                       {tableData && (
                         <div className="flex items-center gap-4 mt-1">
                           <p className="text-sm text-gray-500">
-                            {tableData.total} {t.records} • {tableData.pages} {t.pages}
+                            {tableData.total} {t.records} • {tableData.pages}{" "}
+                            {t.pages}
                           </p>
                           {selectedRows.size > 0 && (
                             <p className="text-sm text-primary-600 font-medium">
@@ -816,7 +835,9 @@ export default function DatabaseApp() {
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleSearch(e)}
+                          onKeyDown={(e) =>
+                            e.key === "Enter" && handleSearch(e)
+                          }
                           placeholder={t.searchInTable}
                           className="px-3 py-2 border border-gray-300 rounded-l-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-w-0"
                         />
@@ -828,7 +849,7 @@ export default function DatabaseApp() {
                         </button>
                       </div>
 
-                      <div className="flex gap-2">                        
+                      <div className="flex gap-2">
                         <div
                           className={`flex gap-2 transition-all duration-200 ${selectedRows.size > 0 ? "opacity-100 visible" : "opacity-0 invisible"}`}
                         >
@@ -838,7 +859,9 @@ export default function DatabaseApp() {
                             title={t.downloadSelected}
                           >
                             <Download className="h-4 w-4" />
-                            <span className="hidden sm:inline">{t.downloadSelected}</span>
+                            <span className="hidden sm:inline">
+                              {t.downloadSelected}
+                            </span>
                           </button>
                           <button
                             onClick={() => setSelectedRows(new Set())}
@@ -846,7 +869,9 @@ export default function DatabaseApp() {
                             title={t.clearSelection}
                           >
                             <X className="h-4 w-4" />
-                            <span className="hidden sm:inline">{t.clearSelection}</span>
+                            <span className="hidden sm:inline">
+                              {t.clearSelection}
+                            </span>
                           </button>
                         </div>
 
@@ -886,16 +911,21 @@ export default function DatabaseApp() {
                               <th className="px-4 py-4 w-12">
                                 <ModernCheckbox
                                   checked={
-                                    tableData.records.length > 0 && selectedRows.size === tableData.records.length
+                                    tableData.records.length > 0 &&
+                                    selectedRows.size ===
+                                      tableData.records.length
                                   }
                                   onChange={(e) => {
-                                    e.stopPropagation()
-                                    handleSelectAll()
+                                    e.stopPropagation();
+                                    handleSelectAll();
                                   }}
                                 />
                               </th>
                               {tableData.columns.map((col) => (
-                                <th key={col} className="px-6 py-4 font-semibold whitespace-nowrap">
+                                <th
+                                  key={col}
+                                  className="px-6 py-4 font-semibold whitespace-nowrap"
+                                >
                                   {col}
                                 </th>
                               ))}
@@ -917,8 +947,8 @@ export default function DatabaseApp() {
                                   <ModernCheckbox
                                     checked={selectedRows.has(record.id)}
                                     onChange={(e) => {
-                                      e.stopPropagation()
-                                      handleRowSelect(record.id)
+                                      e.stopPropagation();
+                                      handleRowSelect(record.id);
                                     }}
                                   />
                                 </td>
@@ -928,9 +958,15 @@ export default function DatabaseApp() {
                                     className="px-6 py-4 text-gray-700 cursor-pointer"
                                     onClick={() => handleRowSelect(record.id)}
                                   >
-                                    <div className="max-w-xs truncate" title={record.data[col] || "-"}>
+                                    <div
+                                      className="max-w-xs truncate"
+                                      title={record.data[col] || "-"}
+                                    >
                                       {searchQuery
-                                        ? highlightSearchTerm(record.data[col] || "-", searchQuery)
+                                        ? highlightSearchTerm(
+                                            record.data[col] || "-",
+                                            searchQuery,
+                                          )
                                         : record.data[col] || "-"}
                                     </div>
                                   </td>
@@ -945,7 +981,11 @@ export default function DatabaseApp() {
                         <div className="flex items-center justify-between mt-6 p-4 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-4">
                             <p className="text-sm text-gray-700">
-                              {t.totalRecords} <span className="font-medium">{tableData.total}</span> {t.records}
+                              {t.totalRecords}{" "}
+                              <span className="font-medium">
+                                {tableData.total}
+                              </span>{" "}
+                              {t.records}
                             </p>
                             <p className="text-sm text-primary-600 font-medium">
                               Page {currentPage} of {tableData.pages}
@@ -963,38 +1003,46 @@ export default function DatabaseApp() {
                                 <ChevronLeft className="h-5 w-5" />
                               )}
                             </button>
-                            <div className="flex items-center gap-1">                              
-                              {Array.from({ length: Math.min(5, tableData.pages) }, (_, i) => {
-                                let pageNum
-                                if (tableData.pages <= 5) {
-                                  pageNum = i + 1
-                                } else if (currentPage <= 3) {
-                                  pageNum = i + 1
-                                } else if (currentPage >= tableData.pages - 2) {
-                                  pageNum = tableData.pages - 4 + i
-                                } else {
-                                  pageNum = currentPage - 2 + i
-                                }
+                            <div className="flex items-center gap-1">
+                              {Array.from(
+                                { length: Math.min(5, tableData.pages) },
+                                (_, i) => {
+                                  let pageNum;
+                                  if (tableData.pages <= 5) {
+                                    pageNum = i + 1;
+                                  } else if (currentPage <= 3) {
+                                    pageNum = i + 1;
+                                  } else if (
+                                    currentPage >=
+                                    tableData.pages - 2
+                                  ) {
+                                    pageNum = tableData.pages - 4 + i;
+                                  } else {
+                                    pageNum = currentPage - 2 + i;
+                                  }
 
-                                return (
-                                  <button
-                                    key={pageNum}
-                                    onClick={() => handlePageChange(pageNum)}
-                                    disabled={pageLoading}
-                                    className={`px-3 py-2 text-sm rounded-lg border transition-all duration-300 transform hover:scale-105 ${
-                                      currentPage === pageNum
-                                        ? "bg-primary-600 text-black border-primary-600 shadow-lg scale-110 font-bold"
-                                        : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:shadow-md"
-                                    }`}
-                                  >
-                                    {pageNum}
-                                  </button>
-                                )
-                              })}
+                                  return (
+                                    <button
+                                      key={pageNum}
+                                      onClick={() => handlePageChange(pageNum)}
+                                      disabled={pageLoading}
+                                      className={`px-3 py-2 text-sm rounded-lg border transition-all duration-300 transform hover:scale-105 ${
+                                        currentPage === pageNum
+                                          ? "bg-primary-600 text-black border-primary-600 shadow-lg scale-110 font-bold"
+                                          : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:shadow-md"
+                                      }`}
+                                    >
+                                      {pageNum}
+                                    </button>
+                                  );
+                                },
+                              )}
                             </div>
                             <button
                               onClick={() => handlePageChange(currentPage + 1)}
-                              disabled={currentPage === tableData.pages || pageLoading}
+                              disabled={
+                                currentPage === tableData.pages || pageLoading
+                              }
                               className="p-2 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 border border-gray-200 bg-white shadow-sm hover:shadow-md"
                             >
                               {pageLoading && currentPage < tableData.pages ? (
@@ -1021,14 +1069,16 @@ export default function DatabaseApp() {
               <div className="flex items-center justify-center h-96">
                 <div className="text-center">
                   <Database className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-                  <h3 className="text-lg font-medium text-gray-700 mb-2">{t.selectTable}</h3>
+                  <h3 className="text-lg font-medium text-gray-700 mb-2">
+                    {t.selectTable}
+                  </h3>
                   <p className="text-gray-500">{t.selectFromLeft}</p>
                 </div>
               </div>
             )}
           </div>
         </div>
-        
+
         {hasSearched && (
           <div
             ref={searchResultsRef}
@@ -1042,29 +1092,29 @@ export default function DatabaseApp() {
                 </h3>
                 <button
                   onClick={() => {
-                    setGlobalSearchResults([])
-                    setFilteredSearchResults([])
-                    setResultsFilterQuery("")
-                    setGlobalSearchQuery("")
-                    setHasSearched(false)
-                    setLastSearchTerm("")
+                    setGlobalSearchResults([]);
+                    setFilteredSearchResults([]);
+                    setResultsFilterQuery("");
+                    setGlobalSearchQuery("");
+                    setHasSearched(false);
+                    setLastSearchTerm("");
                   }}
                   className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              
+
               {hasSearched && (
                 <div className="relative">
                   <input
                     type="text"
                     value={resultsFilterQuery}
                     onChange={(e) => {
-                      setResultsFilterQuery(e.target.value)
+                      setResultsFilterQuery(e.target.value);
                     }}
                     placeholder={t.filterResults}
-                    className={`w-full px-4 py-2 pl-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${filterLoading ? 'pr-10' : ''}`}
+                    className={`w-full px-4 py-2 pl-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors ${filterLoading ? "pr-10" : ""}`}
                   />
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
                   {filterLoading && (
@@ -1075,7 +1125,7 @@ export default function DatabaseApp() {
                   {resultsFilterQuery && (
                     <button
                       onClick={() => {
-                        setResultsFilterQuery("")
+                        setResultsFilterQuery("");
                       }}
                       className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
                     >
@@ -1102,75 +1152,91 @@ export default function DatabaseApp() {
                   </div>
                 </div>
               ) : Object.keys(groupedSearchResults).length > 0 ? (
-                Object.entries(groupedSearchResults).map(([tableName, results], tableIndex) => (
-                  <div key={tableName} className="mb-6 last:mb-0">                    
-                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
-                      <div className="flex items-center">
-                        <FileSpreadsheet className="h-5 w-5 text-primary-600 mr-2" />
-                        <h4 className="text-lg font-semibold text-gray-800">{tableName}</h4>
-                        <span className="ml-2 px-2 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium">
-                          {results.length} {t.resultsInTable}
-                        </span>
+                Object.entries(groupedSearchResults).map(
+                  ([tableName, results], tableIndex) => (
+                    <div key={tableName} className="mb-6 last:mb-0">
+                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+                        <div className="flex items-center">
+                          <FileSpreadsheet className="h-5 w-5 text-primary-600 mr-2" />
+                          <h4 className="text-lg font-semibold text-gray-800">
+                            {tableName}
+                          </h4>
+                          <span className="ml-2 px-2 py-1 bg-primary-100 text-primary-700 rounded-full text-xs font-medium">
+                            {results.length} {t.resultsInTable}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleTableSelect(tableName)}
+                          className="group flex items-center gap-2 px-4 py-2 bg-white text-primary-600 border-2 border-primary-600 rounded-lg"
+                        >
+                          <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                          <span>{t.openTable}</span>
+                        </button>
                       </div>
-                      <button
-                        onClick={() => handleTableSelect(tableName)}
-                        className="group flex items-center gap-2 px-4 py-2 bg-white text-primary-600 border-2 border-primary-600 rounded-lg"
-                      >
-                        <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                        <span>{t.openTable}</span>
-                      </button>
-                    </div>
-                    
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm text-left border border-gray-200 rounded-lg">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                          <tr>
-                            {results.length > 0 &&
-                              Object.keys(results[0].data).map((key) => (
-                                <th
-                                  key={key}
-                                  className="px-4 py-3 font-semibold border-b border-gray-200 whitespace-nowrap"
-                                >
-                                  {key}
-                                </th>
-                              ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {results.map((result, index) => (
-                            <tr
-                              key={index}
-                              className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-primary-50 transition-colors`}
-                            >
-                              {Object.entries(result.data).map(([key, value]) => (
-                                <td
-                                  key={key}
-                                  className="px-4 py-3 text-gray-700 border-r border-gray-200 last:border-r-0"
-                                >
-                                  <div className="max-w-xs truncate" title={value || "-"}>
-                                    {resultsFilterQuery
-                                      ? highlightSearchTerm(value || "-", resultsFilterQuery)
-                                      : value || "-"}
-                                  </div>
-                                </td>
-                              ))}
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left border border-gray-200 rounded-lg">
+                          <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                              {results.length > 0 &&
+                                Object.keys(results[0].data).map((key) => (
+                                  <th
+                                    key={key}
+                                    className="px-4 py-3 font-semibold border-b border-gray-200 whitespace-nowrap"
+                                  >
+                                    {key}
+                                  </th>
+                                ))}
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {results.map((result, index) => (
+                              <tr
+                                key={index}
+                                className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"} hover:bg-primary-50 transition-colors`}
+                              >
+                                {Object.entries(result.data).map(
+                                  ([key, value]) => (
+                                    <td
+                                      key={key}
+                                      className="px-4 py-3 text-gray-700 border-r border-gray-200 last:border-r-0"
+                                    >
+                                      <div
+                                        className="max-w-xs truncate"
+                                        title={value || "-"}
+                                      >
+                                        {resultsFilterQuery
+                                          ? highlightSearchTerm(
+                                              value || "-",
+                                              resultsFilterQuery,
+                                            )
+                                          : value || "-"}
+                                      </div>
+                                    </td>
+                                  ),
+                                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {tableIndex <
+                        Object.keys(groupedSearchResults).length - 1 && (
+                        <div className="mt-6 border-t-2 border-dashed border-gray-300"></div>
+                      )}
                     </div>
-                    
-                    {tableIndex < Object.keys(groupedSearchResults).length - 1 && (
-                      <div className="mt-6 border-t-2 border-dashed border-gray-300"></div>
-                    )}
-                  </div>
-                ))
+                  ),
+                )
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <Search className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-lg font-medium mb-2">{t.noSearchResults}</p>
+                  <p className="text-lg font-medium mb-2">
+                    {t.noSearchResults}
+                  </p>
                   <p className="text-sm mb-1">
-                    {t.searchPerformed} <span className="font-medium">"{lastSearchTerm}"</span>
+                    {t.searchPerformed}{" "}
+                    <span className="font-medium">"{lastSearchTerm}"</span>
                   </p>
                   <p className="text-sm">{t.tryDifferentSearch}</p>
                 </div>
@@ -1180,7 +1246,10 @@ export default function DatabaseApp() {
         )}
       </div>
 
-      <WebTerminal isOpen={isTerminalOpen} onClose={() => setIsTerminalOpen(false)} />
+      <WebTerminal
+        isOpen={isTerminalOpen}
+        onClose={() => setIsTerminalOpen(false)}
+      />
     </div>
-  )
+  );
 }
