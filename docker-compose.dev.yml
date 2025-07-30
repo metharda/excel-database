@@ -1,0 +1,67 @@
+version: '3.8'
+services:  
+  backend-dev:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: excel-db-backend-dev
+    ports:
+    - "5001:5000"  
+    - "8080:8080"  
+    volumes:
+      - ./backend:/app
+      - ./backend/uploads:/app/uploads
+      - ./backend/data:/app/data
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - FLASK_APP=app.py
+      - REDIS_URL=redis://redis:6379
+      - PYTHONPATH=/app
+    restart: unless-stopped
+    depends_on:
+      - redis
+    networks:
+      - excel-db-network
+  
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: builder
+    container_name: excel-db-frontend-dev
+    ports:
+    - "5173:5173"  
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:5000/api
+    restart: unless-stopped
+    depends_on:
+      - backend-dev
+    networks:
+      - excel-db-network
+    command: npm run dev -- --host 0.0.0.0
+  
+  redis:
+    image: redis:7-alpine
+    container_name: excel-db-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    networks:
+      - excel-db-network
+
+volumes:
+  redis_dev_data:
+    driver: local
+
+networks:
+  excel-db-network:
+    driver: bridge
