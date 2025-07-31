@@ -1,7 +1,7 @@
 import os
 import json
 from datetime import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 import pandas as pd
@@ -240,15 +240,27 @@ def export_table(table_name):
     table = DynamicTable.query.filter_by(table_name=table_name).first()
     if not table:
         return jsonify({"error": "Table not found"}), 404
+    
+    # Get format parameter (default to xlsx)
+    format_type = request.args.get("format", "xlsx").lower()
+    if format_type not in ["xlsx", "csv"]:
+        return jsonify({"error": "Invalid format. Use 'xlsx' or 'csv'"}), 400
+    
     records = DataRecord.query.filter_by(table_name=table_name).all()
     data = [json.loads(record.data) for record in records]
     df = pd.DataFrame(data)
-    output_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{table_name}_export.xlsx")
-    df.to_excel(output_path, index=False)
-    from flask import send_file
-
+    
+    if format_type == "csv":
+        output_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{table_name}_export.csv")
+        df.to_csv(output_path, index=False, encoding='utf-8')
+        download_name = f"{table_name}.csv"
+    else:  # xlsx
+        output_path = os.path.join(app.config["UPLOAD_FOLDER"], f"{table_name}_export.xlsx")
+        df.to_excel(output_path, index=False)
+        download_name = f"{table_name}.xlsx"
+    
     return send_file(
-        output_path, as_attachment=True, download_name=f"{table_name}.xlsx"
+        output_path, as_attachment=True, download_name=download_name
     )
 
 

@@ -41,6 +41,9 @@ const translations = {
     pages: "pages",
     searchInTable: "Search in table...",
     downloadAsExcel: "Download as Excel",
+    downloadFormat: "Download Format",
+    downloadAsXLSX: "Download as XLSX",
+    downloadAsCSV: "Download as CSV",
     deleteTable: "Delete table",
     loading: "Loading...",
     noSearchResults: "No search results found",
@@ -96,6 +99,9 @@ const translations = {
     pages: "sayfa",
     searchInTable: "Tabloda ara...",
     downloadAsExcel: "Excel olarak indir",
+    downloadFormat: "İndirme Formatı",
+    downloadAsXLSX: "XLSX olarak indir",
+    downloadAsCSV: "CSV olarak indir",
     deleteTable: "Tabloyu sil",
     loading: "Yükleniyor...",
     noSearchResults: "Arama sonucu bulunamadı",
@@ -156,9 +162,13 @@ export default function DatabaseApp() {
   const [lastSearchTerm, setLastSearchTerm] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
+  const [downloadDropdownOpen, setDownloadDropdownOpen] = useState(false);
+  const [selectedDropdownOpen, setSelectedDropdownOpen] = useState(false);
 
   const searchResultsRef = useRef(null);
   const fileInputRef = useRef(null);
+  const downloadDropdownRef = useRef(null);
+  const selectedDropdownRef = useRef(null);
   const { addToast, ToastContainer } = useToast();
   const t = translations[language];
 
@@ -231,6 +241,23 @@ export default function DatabaseApp() {
   useEffect(() => {
     setResultsFilterQuery(globalSearchQuery);
   }, [globalSearchQuery]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(event.target)) {
+        setDownloadDropdownOpen(false);
+      }
+      if (selectedDropdownRef.current && !selectedDropdownRef.current.contains(event.target)) {
+        setSelectedDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     if (resultsFilterQuery && resultsFilterQuery !== globalSearchQuery) {
@@ -464,17 +491,17 @@ export default function DatabaseApp() {
     }
   };
 
-  const handleExport = async (tableName) => {
+  const handleExport = async (tableName, format = "xlsx") => {
     try {
       addToast(t.downloadingFile, "info");
-      const response = await fetch(`${API_URL}/export/${tableName}`);
+      const response = await fetch(`${API_URL}/export/${tableName}?format=${format}`);
 
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `${tableName}.xlsx`;
+        link.download = `${tableName}.${format}`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -489,7 +516,7 @@ export default function DatabaseApp() {
     }
   };
 
-  const handleExportSelected = async () => {
+  const handleExportSelected = async (format = "xlsx") => {
     if (selectedRows.size === 0) return;
 
     try {
@@ -499,18 +526,45 @@ export default function DatabaseApp() {
         selectedRows.has(record.id),
       );
 
-      const wb = XLSX.utils.book_new();
-      const wsData = [
-        tableData.columns,
-        ...selectedData.map((record) =>
-          tableData.columns.map((col) => record.data[col] || ""),
-        ),
-      ];
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      if (format === "csv") {
+        // Create CSV content
+        const csvContent = [
+          tableData.columns.join(","),
+          ...selectedData.map((record) =>
+            tableData.columns.map((col) => {
+              const value = record.data[col] || "";
+              // Escape quotes and wrap in quotes if contains comma or quote
+              return typeof value === 'string' && (value.includes(',') || value.includes('"')) 
+                ? `"${value.replace(/"/g, '""')}"` 
+                : value;
+            }).join(",")
+          ),
+        ].join("\n");
 
-      XLSX.utils.book_append_sheet(wb, ws, "Selected Data");
+        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${selectedTable}_selected.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Create XLSX file
+        const wb = XLSX.utils.book_new();
+        const wsData = [
+          tableData.columns,
+          ...selectedData.map((record) =>
+            tableData.columns.map((col) => record.data[col] || ""),
+          ),
+        ];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-      XLSX.writeFile(wb, `${selectedTable}_selected.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, "Selected Data");
+
+        XLSX.writeFile(wb, `${selectedTable}_selected.xlsx`);
+      }
 
       addToast(t.exportComplete, "success");
     } catch (error) {
@@ -684,11 +738,11 @@ export default function DatabaseApp() {
 
               <button
                 onClick={() => setIsTerminalOpen(true)}
-                className="flex items-center px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                className="flex items-center justify-center w-[120px] h-10 px-4 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                 title={t.openTerminal}
               >
                 <Terminal className="h-5 w-5 mr-2" />
-                <span className="text-sm font-medium hidden sm:inline">
+                <span className="text-sm font-medium whitespace-nowrap hidden sm:inline">
                   {t.terminal}
                 </span>
               </button>
@@ -702,9 +756,9 @@ export default function DatabaseApp() {
                   dragActive ? "border-emerald-400" : "border-transparent"
                 }`}
               >
-                <label className="flex items-center px-4 py-2 text-white cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2">
-                  <Upload className="h-5 w-5 mr-2" />
-                  <span className="text-sm font-medium">
+                <label className="flex items-center justify-center w-[140px] h-9 px-4 text-white cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2 select-none">
+                  <Upload className="h-5 w-5 mr-2 flex-shrink-0" />
+                  <span className="text-sm font-medium whitespace-nowrap text-ellipsis">
                     {uploading
                       ? t.uploading
                       : dragActive
@@ -853,38 +907,92 @@ export default function DatabaseApp() {
                         <div
                           className={`flex gap-2 transition-all duration-200 ${selectedRows.size > 0 ? "opacity-100 visible" : "opacity-0 invisible"}`}
                         >
-                          <button
-                            onClick={handleExportSelected}
-                            className="flex items-center gap-2 px-3 py-2 text-emerald-600 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-colors text-sm font-medium"
-                            title={t.downloadSelected}
-                          >
-                            <Download className="h-4 w-4" />
-                            <span className="hidden sm:inline">
-                              {t.downloadSelected}
-                            </span>
-                          </button>
+                          <div className="relative" ref={selectedDropdownRef}>
+                            <button
+                              onClick={() => setSelectedDropdownOpen(!selectedDropdownOpen)}
+                              className="flex items-center justify-center gap-2 min-w-[120px] h-10 px-3 py-2 text-emerald-600 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-colors text-sm font-medium"
+                              title={t.downloadFormat}
+                            >
+                              <Download className="h-4 w-4" />
+                              <span className="hidden sm:inline whitespace-nowrap">
+                                {t.downloadSelected}
+                              </span>
+                            </button>
+                            
+                            {selectedDropdownOpen && (
+                              <div className="absolute left-0 mt-2 py-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                                <button
+                                  onClick={() => {
+                                    handleExportSelected("xlsx");
+                                    setSelectedDropdownOpen(false);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                                >
+                                  <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" />
+                                  {t.downloadAsXLSX}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    handleExportSelected("csv");
+                                    setSelectedDropdownOpen(false);
+                                  }}
+                                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                                >
+                                  <Database className="h-4 w-4 mr-2 text-blue-600" />
+                                  {t.downloadAsCSV}
+                                </button>
+                              </div>
+                            )}
+                          </div>
                           <button
                             onClick={() => setSelectedRows(new Set())}
-                            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors text-sm font-medium"
+                            className="flex items-center justify-center gap-2 min-w-[100px] h-10 px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors text-sm font-medium"
                             title={t.clearSelection}
                           >
                             <X className="h-4 w-4" />
-                            <span className="hidden sm:inline">
+                            <span className="hidden sm:inline whitespace-nowrap">
                               {t.clearSelection}
                             </span>
                           </button>
                         </div>
 
-                        <button
-                          onClick={() => handleExport(selectedTable)}
-                          className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg border border-primary-200 transition-colors"
-                          title={t.downloadAsExcel}
-                        >
-                          <Download className="h-5 w-5" />
-                        </button>
+                        <div className="relative" ref={downloadDropdownRef}>
+                          <button
+                            onClick={() => setDownloadDropdownOpen(!downloadDropdownOpen)}
+                            className="flex items-center justify-center min-w-[40px] w-10 h-10 text-primary-600 hover:bg-primary-50 rounded-lg border border-primary-200 transition-colors"
+                            title={t.downloadFormat}
+                          >
+                            <Download className="h-5 w-5" />
+                          </button>
+                          
+                          {downloadDropdownOpen && (
+                            <div className="absolute right-0 mt-2 py-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                              <button
+                                onClick={() => {
+                                  handleExport(selectedTable, "xlsx");
+                                  setDownloadDropdownOpen(false);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" />
+                                {t.downloadAsXLSX}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleExport(selectedTable, "csv");
+                                  setDownloadDropdownOpen(false);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center"
+                              >
+                                <Database className="h-4 w-4 mr-2 text-blue-600" />
+                                {t.downloadAsCSV}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <button
                           onClick={() => handleDelete(selectedTable)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+                          className="flex items-center justify-center min-w-[40px] w-10 h-10 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
                           title={t.deleteTable}
                         >
                           <Trash2 className="h-5 w-5" />
@@ -905,28 +1013,32 @@ export default function DatabaseApp() {
                   ) : tableData && tableData.records.length > 0 ? (
                     <>
                       <div className="overflow-x-auto table-scroll rounded-lg border border-gray-200">
-                        <table className="w-full text-sm text-left">
+                        <table className="w-full text-sm text-left table-fixed">
                           <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
-                            <tr>
-                              <th className="px-4 py-4 w-12">
-                                <ModernCheckbox
-                                  checked={
-                                    tableData.records.length > 0 &&
-                                    selectedRows.size ===
-                                      tableData.records.length
-                                  }
-                                  onChange={(e) => {
-                                    e.stopPropagation();
-                                    handleSelectAll();
-                                  }}
-                                />
+                            <tr className="h-12 min-h-[48px] max-h-[48px]">
+                              <th className="px-4 py-3 w-12 h-12">
+                                <div className="flex items-center justify-center h-full">
+                                  <ModernCheckbox
+                                    checked={
+                                      tableData.records.length > 0 &&
+                                      selectedRows.size ===
+                                        tableData.records.length
+                                    }
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      handleSelectAll();
+                                    }}
+                                  />
+                                </div>
                               </th>
                               {tableData.columns.map((col) => (
                                 <th
                                   key={col}
-                                  className="px-6 py-4 font-semibold whitespace-nowrap"
+                                  className="px-6 py-3 h-12 font-semibold whitespace-nowrap"
                                 >
-                                  {col}
+                                  <div className="flex items-center h-full">
+                                    {col}
+                                  </div>
                                 </th>
                               ))}
                             </tr>
@@ -935,39 +1047,43 @@ export default function DatabaseApp() {
                             {tableData.records.map((record, index) => (
                               <tr
                                 key={record.id}
-                                className={`${
+                                className={`h-12 min-h-[48px] max-h-[48px] ${
                                   selectedRows.has(record.id)
-                                    ? "bg-primary-50 border-primary-200"
+                                    ? "bg-primary-50"
                                     : index % 2 === 0
                                       ? "bg-white"
                                       : "bg-gray-50"
                                 } hover:bg-primary-50 transition-colors`}
                               >
-                                <td className="px-4 py-4 w-12">
-                                  <ModernCheckbox
-                                    checked={selectedRows.has(record.id)}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      handleRowSelect(record.id);
-                                    }}
-                                  />
+                                <td className="px-4 py-3 w-12 h-12">
+                                  <div className="flex items-center justify-center h-full">
+                                    <ModernCheckbox
+                                      checked={selectedRows.has(record.id)}
+                                      onChange={(e) => {
+                                        e.stopPropagation();
+                                        handleRowSelect(record.id);
+                                      }}
+                                    />
+                                  </div>
                                 </td>
                                 {tableData.columns.map((col) => (
                                   <td
                                     key={col}
-                                    className="px-6 py-4 text-gray-700 cursor-pointer"
+                                    className="px-6 py-3 h-12 text-gray-700 cursor-pointer"
                                     onClick={() => handleRowSelect(record.id)}
                                   >
-                                    <div
-                                      className="max-w-xs truncate"
-                                      title={record.data[col] || "-"}
-                                    >
-                                      {searchQuery
-                                        ? highlightSearchTerm(
-                                            record.data[col] || "-",
-                                            searchQuery,
-                                          )
-                                        : record.data[col] || "-"}
+                                    <div className="flex items-center h-full">
+                                      <div
+                                        className="max-w-xs truncate"
+                                        title={record.data[col] || "-"}
+                                      >
+                                        {searchQuery
+                                          ? highlightSearchTerm(
+                                              record.data[col] || "-",
+                                              searchQuery,
+                                            )
+                                          : record.data[col] || "-"}
+                                      </div>
                                     </div>
                                   </td>
                                 ))}

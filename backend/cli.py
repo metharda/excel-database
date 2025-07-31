@@ -228,16 +228,17 @@ def delete(table_name):
 @main.command("export")
 @click.argument("table_name")
 @click.argument("output_path", required=False)
-def export(table_name, output_path):
+@click.option("--format", "-f", type=click.Choice(["xlsx", "csv"]), default="xlsx", help="Export format (xlsx or csv)")
+def export(table_name, output_path, format):
     try:
-        url = f"{API_URL}/export/{table_name}"
+        url = f"{API_URL}/export/{table_name}?format={format}"
         response = requests.get(url)
         if response.status_code == 200:
             if not output_path:
-                output_path = f"{table_name}.xlsx"
+                output_path = f"{table_name}.{format}"
             with open(output_path, "wb") as f:
                 f.write(response.content)
-            cli.print_success(f"Table saved as '{output_path}'.")
+            cli.print_success(f"Table saved as '{output_path}' in {format.upper()} format.")
         else:
             cli.print_error("Could not export table.")
     except Exception as e:

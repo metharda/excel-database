@@ -17,7 +17,7 @@ A modern, full-stack Excel file management system with web interface and CLI ter
 - **RESTful API**: Fast Flask-based backend with SQLAlchemy ORM
 - **Redis Caching**: Optional Redis integration for improved performance
 - **File Processing**: Automatic Excel/CSV parsing with pandas
-- **Data Export**: Download tables in Excel format
+- **Data Export**: Download tables in Excel (.xlsx) or CSV format
 - **Search Engine**: Configurable search with up to 5000 results
 
 ### Command Line Interface
@@ -74,6 +74,7 @@ python cli.py tables
 python cli.py show table_name
 python cli.py search "search term"
 python cli.py export table_name output.xlsx
+python cli.py export table_name output.csv --format csv
 ```
 
 ## API Endpoints
@@ -84,7 +85,7 @@ python cli.py export table_name output.xlsx
 | GET | `/api/tables/<name>` | Get table data with pagination |
 | POST | `/api/upload` | Upload Excel/CSV files |
 | GET | `/api/search` | Global search with limit parameter |
-| GET | `/api/export/<name>` | Download table as Excel |
+| GET | `/api/export/<name>` | Download table as Excel or CSV (format parameter optional) |
 | DELETE | `/api/delete/<name>` | Delete table |
 
 ## Docker Services
