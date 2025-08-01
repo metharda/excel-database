@@ -309,6 +309,40 @@ def create_sample_data():
             db.session.add(record)
         db.session.commit()
 
+@app.route("/api/rename_table", methods=["POST"])
+def rename_table():
+    data = request.get_json()
+    old_name = data.get("old_name")
+    new_name = data.get("new_name")
+    if not old_name or not new_name:
+        return jsonify({"error": "Both old_name and new_name are required."}), 400
+    table = DynamicTable.query.filter_by(table_name=old_name).first()
+    if not table:
+        return jsonify({"error": "Table not found."}), 404
+    if DynamicTable.query.filter_by(table_name=new_name).first():
+        return jsonify({"error": "A table with the new name already exists."}), 400
+    # Update table name in DynamicTable
+    table.table_name = new_name
+    # Update all DataRecord entries
+    DataRecord.query.filter_by(table_name=old_name).update({"table_name": new_name})
+    db.session.commit()
+    return jsonify({"message": "Table renamed successfully."})
+
+
+@app.route("/api/update_row", methods=["POST"])
+def update_row():
+    data = request.get_json()
+    row_id = data.get("id")
+    table_name = data.get("table_name")
+    new_data = data.get("data")
+    if not row_id or not table_name or not new_data:
+        return jsonify({"error": "id, table_name, and data are required."}), 400
+    record = DataRecord.query.filter_by(id=row_id, table_name=table_name).first()
+    if not record:
+        return jsonify({"error": "Row not found."}), 404
+    record.data = json.dumps(new_data, ensure_ascii=False)
+    db.session.commit()
+    return jsonify({"message": "Row updated successfully."})
 
 if __name__ == "__main__":
     with app.app_context():

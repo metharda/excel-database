@@ -141,6 +141,12 @@ const translations = {
 };
 
 export default function DatabaseApp() {
+  const [editingCell, setEditingCell] = useState(null);
+
+  const [editingTableName, setEditingTableName] = useState(false);
+  const [newTableName, setNewTableName] = useState("");
+  const [rowEditModal, setRowEditModal] = useState({ open: false, row: null });
+  const [rowEditData, setRowEditData] = useState({});
   const [tables, setTables] = useState([]);
   const [selectedTable, setSelectedTable] = useState(null);
   const [tableData, setTableData] = useState(null);
@@ -242,20 +248,25 @@ export default function DatabaseApp() {
     setResultsFilterQuery(globalSearchQuery);
   }, [globalSearchQuery]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(event.target)) {
+      if (
+        downloadDropdownRef.current &&
+        !downloadDropdownRef.current.contains(event.target)
+      ) {
         setDownloadDropdownOpen(false);
       }
-      if (selectedDropdownRef.current && !selectedDropdownRef.current.contains(event.target)) {
+      if (
+        selectedDropdownRef.current &&
+        !selectedDropdownRef.current.contains(event.target)
+      ) {
         setSelectedDropdownOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
 
@@ -494,7 +505,9 @@ export default function DatabaseApp() {
   const handleExport = async (tableName, format = "xlsx") => {
     try {
       addToast(t.downloadingFile, "info");
-      const response = await fetch(`${API_URL}/export/${tableName}?format=${format}`);
+      const response = await fetch(
+        `${API_URL}/export/${tableName}?format=${format}`,
+      );
 
       if (response.ok) {
         const blob = await response.blob();
@@ -527,21 +540,25 @@ export default function DatabaseApp() {
       );
 
       if (format === "csv") {
-        // Create CSV content
         const csvContent = [
           tableData.columns.join(","),
           ...selectedData.map((record) =>
-            tableData.columns.map((col) => {
-              const value = record.data[col] || "";
-              // Escape quotes and wrap in quotes if contains comma or quote
-              return typeof value === 'string' && (value.includes(',') || value.includes('"')) 
-                ? `"${value.replace(/"/g, '""')}"` 
-                : value;
-            }).join(",")
+            tableData.columns
+              .map((col) => {
+                const value = record.data[col] || "";
+
+                return typeof value === "string" &&
+                  (value.includes(",") || value.includes('"'))
+                  ? `"${value.replace(/"/g, '""')}"`
+                  : value;
+              })
+              .join(","),
           ),
         ].join("\n");
 
-        const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+        const blob = new Blob([csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -551,7 +568,6 @@ export default function DatabaseApp() {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       } else {
-        // Create XLSX file
         const wb = XLSX.utils.book_new();
         const wsData = [
           tableData.columns,
@@ -864,10 +880,82 @@ export default function DatabaseApp() {
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                      <div className="flex items-center gap-2">
                         <Database className="h-6 w-6 mr-2 text-primary-600" />
-                        {selectedTable}
-                      </h2>
+                        {editingTableName ? (
+                          <form
+                            onSubmit={async (e) => {
+                              e.preventDefault();
+                              if (
+                                !newTableName.trim() ||
+                                newTableName === selectedTable
+                              ) {
+                                setEditingTableName(false);
+                                return;
+                              }
+                              try {
+                                const res = await fetch(
+                                  `${API_URL}/rename_table`,
+                                  {
+                                    method: "POST",
+                                    headers: {
+                                      "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                      old_name: selectedTable,
+                                      new_name: newTableName,
+                                    }),
+                                  },
+                                );
+                                const data = await res.json();
+                                if (res.ok) {
+                                  addToast(
+                                    language === "tr"
+                                      ? "Tablo ismi güncellendi"
+                                      : "Table renamed",
+                                    "success",
+                                  );
+                                  setEditingTableName(false);
+                                  setSelectedTable(newTableName);
+                                  fetchTables();
+                                } else {
+                                  addToast(data.error || "Hata", "error");
+                                }
+                              } catch (e) {
+                                addToast("Sunucu hatası", "error");
+                              }
+                            }}
+                            className="flex items-center gap-2"
+                          >
+                            <input
+                              className="text-xl font-bold text-gray-800 border-b border-gray-400 focus:outline-none focus:border-primary-500 bg-transparent w-40"
+                              value={newTableName}
+                              autoFocus
+                              onChange={(e) => setNewTableName(e.target.value)}
+                              onBlur={() => setEditingTableName(false)}
+                            />
+                            <button
+                              type="submit"
+                              className="text-emerald-600 text-sm font-medium px-2 py-1 hover:underline"
+                            >
+                              {language === "tr" ? "Kaydet" : "Save"}
+                            </button>
+                          </form>
+                        ) : (
+                          <h2
+                            className="text-xl font-bold text-gray-800 flex items-center cursor-pointer hover:underline"
+                            title={
+                              language === "tr" ? "İsmi Değiştir" : "Rename"
+                            }
+                            onClick={() => {
+                              setNewTableName(selectedTable);
+                              setEditingTableName(true);
+                            }}
+                          >
+                            {selectedTable}
+                          </h2>
+                        )}
+                      </div>
                       {tableData && (
                         <div className="flex items-center gap-4 mt-1">
                           <p className="text-sm text-gray-500">
@@ -909,7 +997,9 @@ export default function DatabaseApp() {
                         >
                           <div className="relative" ref={selectedDropdownRef}>
                             <button
-                              onClick={() => setSelectedDropdownOpen(!selectedDropdownOpen)}
+                              onClick={() =>
+                                setSelectedDropdownOpen(!selectedDropdownOpen)
+                              }
                               className="flex items-center justify-center gap-2 min-w-[120px] h-10 px-3 py-2 text-emerald-600 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-colors text-sm font-medium"
                               title={t.downloadFormat}
                             >
@@ -918,7 +1008,7 @@ export default function DatabaseApp() {
                                 {t.downloadSelected}
                               </span>
                             </button>
-                            
+
                             {selectedDropdownOpen && (
                               <div className="absolute left-0 mt-2 py-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                                 <button
@@ -958,13 +1048,15 @@ export default function DatabaseApp() {
 
                         <div className="relative" ref={downloadDropdownRef}>
                           <button
-                            onClick={() => setDownloadDropdownOpen(!downloadDropdownOpen)}
+                            onClick={() =>
+                              setDownloadDropdownOpen(!downloadDropdownOpen)
+                            }
                             className="flex items-center justify-center min-w-[40px] w-10 h-10 text-primary-600 hover:bg-primary-50 rounded-lg border border-primary-200 transition-colors"
                             title={t.downloadFormat}
                           >
                             <Download className="h-5 w-5" />
                           </button>
-                          
+
                           {downloadDropdownOpen && (
                             <div className="absolute right-0 mt-2 py-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                               <button
@@ -1070,23 +1162,201 @@ export default function DatabaseApp() {
                                   <td
                                     key={col}
                                     className="px-6 py-3 h-12 text-gray-700 cursor-pointer"
-                                    onClick={() => handleRowSelect(record.id)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingCell({ rowId: record.id, col });
+                                      setRowEditData({ ...record.data });
+                                    }}
                                   >
                                     <div className="flex items-center h-full">
-                                      <div
-                                        className="max-w-xs truncate"
-                                        title={record.data[col] || "-"}
-                                      >
-                                        {searchQuery
-                                          ? highlightSearchTerm(
-                                              record.data[col] || "-",
-                                              searchQuery,
-                                            )
-                                          : record.data[col] || "-"}
-                                      </div>
+                                      {editingCell &&
+                                      editingCell.rowId === record.id &&
+                                      editingCell.col === col ? (
+                                        <form
+                                          onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            try {
+                                              const res = await fetch(
+                                                `${API_URL}/update_row`,
+                                                {
+                                                  method: "POST",
+                                                  headers: {
+                                                    "Content-Type":
+                                                      "application/json",
+                                                  },
+                                                  body: JSON.stringify({
+                                                    id: record.id,
+                                                    table_name: selectedTable,
+                                                    data: rowEditData,
+                                                  }),
+                                                },
+                                              );
+                                              const data = await res.json();
+                                              if (res.ok) {
+                                                addToast(
+                                                  language === "tr"
+                                                    ? "Satır güncellendi"
+                                                    : "Row updated",
+                                                  "success",
+                                                );
+                                                setEditingCell(null);
+                                                fetchTableData(
+                                                  selectedTable,
+                                                  currentPage,
+                                                  searchQuery,
+                                                );
+                                              } else {
+                                                addToast(
+                                                  data.error || "Hata",
+                                                  "error",
+                                                );
+                                              }
+                                            } catch (e) {
+                                              addToast(
+                                                "Sunucu hatası",
+                                                "error",
+                                              );
+                                            }
+                                          }}
+                                          className="w-full"
+                                        >
+                                          <input
+                                            className="border-b border-primary-500 focus:outline-none bg-white w-full px-1 py-0.5 text-sm"
+                                            value={rowEditData[col] ?? ""}
+                                            autoFocus
+                                            onChange={(e) =>
+                                              setRowEditData((d) => ({
+                                                ...d,
+                                                [col]: e.target.value,
+                                              }))
+                                            }
+                                            onBlur={() => setEditingCell(null)}
+                                          />
+                                        </form>
+                                      ) : (
+                                        <div
+                                          className="max-w-xs truncate w-full"
+                                          title={record.data[col] || "-"}
+                                        >
+                                          {searchQuery
+                                            ? highlightSearchTerm(
+                                                record.data[col] || "-",
+                                                searchQuery,
+                                              )
+                                            : record.data[col] || "-"}
+                                        </div>
+                                      )}
                                     </div>
                                   </td>
                                 ))}
+                                {/* Edit butonu kaldırıldı, hücreye tıklayınca inline edit açılır */}
+
+                                {/* Satır Düzenle Modalı */}
+                                {rowEditModal.open && (
+                                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+                                    <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px] max-w-[90vw]">
+                                      <h3 className="text-lg font-bold mb-2">
+                                        {language === "tr"
+                                          ? "Satırı Düzenle"
+                                          : "Edit Row"}
+                                      </h3>
+                                      <form
+                                        onSubmit={async (e) => {
+                                          e.preventDefault();
+                                          try {
+                                            const res = await fetch(
+                                              `${API_URL}/update_row`,
+                                              {
+                                                method: "POST",
+                                                headers: {
+                                                  "Content-Type":
+                                                    "application/json",
+                                                },
+                                                body: JSON.stringify({
+                                                  id: rowEditModal.row.id,
+                                                  table_name: selectedTable,
+                                                  data: rowEditData,
+                                                }),
+                                              },
+                                            );
+                                            const data = await res.json();
+                                            if (res.ok) {
+                                              addToast(
+                                                language === "tr"
+                                                  ? "Satır güncellendi"
+                                                  : "Row updated",
+                                                "success",
+                                              );
+                                              setRowEditModal({
+                                                open: false,
+                                                row: null,
+                                              });
+                                              fetchTableData(
+                                                selectedTable,
+                                                currentPage,
+                                                searchQuery,
+                                              );
+                                            } else {
+                                              addToast(
+                                                data.error || "Hata",
+                                                "error",
+                                              );
+                                            }
+                                          } catch (e) {
+                                            addToast("Sunucu hatası", "error");
+                                          }
+                                        }}
+                                      >
+                                        <div className="flex flex-col gap-3 mb-4">
+                                          {tableData.columns.map((col) => (
+                                            <div
+                                              key={col}
+                                              className="flex flex-col"
+                                            >
+                                              <label className="text-xs text-gray-600 mb-1">
+                                                {col}
+                                              </label>
+                                              <input
+                                                className="border border-gray-300 rounded px-2 py-1"
+                                                value={rowEditData[col] ?? ""}
+                                                onChange={(e) =>
+                                                  setRowEditData((d) => ({
+                                                    ...d,
+                                                    [col]: e.target.value,
+                                                  }))
+                                                }
+                                              />
+                                            </div>
+                                          ))}
+                                        </div>
+                                        <div className="flex gap-2 justify-end">
+                                          <button
+                                            type="button"
+                                            className="px-3 py-1 rounded bg-gray-100 hover:bg-gray-200"
+                                            onClick={() =>
+                                              setRowEditModal({
+                                                open: false,
+                                                row: null,
+                                              })
+                                            }
+                                          >
+                                            {language === "tr"
+                                              ? "İptal"
+                                              : "Cancel"}
+                                          </button>
+                                          <button
+                                            type="submit"
+                                            className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+                                          >
+                                            {language === "tr"
+                                              ? "Kaydet"
+                                              : "Save"}
+                                          </button>
+                                        </div>
+                                      </form>
+                                    </div>
+                                  </div>
+                                )}
                               </tr>
                             ))}
                           </tbody>
