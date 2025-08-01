@@ -142,6 +142,8 @@ const translations = {
 
 export default function DatabaseApp() {
   const [editingCell, setEditingCell] = useState(null);
+  const [editingColumn, setEditingColumn] = useState(null); // { oldName: string }
+  const [newColumnName, setNewColumnName] = useState("");
 
   const [editingTableName, setEditingTableName] = useState(false);
   const [newTableName, setNewTableName] = useState("");
@@ -1126,10 +1128,101 @@ export default function DatabaseApp() {
                               {tableData.columns.map((col) => (
                                 <th
                                   key={col}
-                                  className="px-6 py-3 h-12 font-semibold whitespace-nowrap"
+                                  className="px-6 py-3 h-12 font-semibold whitespace-nowrap cursor-pointer group"
+                                  onClick={() => {
+                                    setEditingColumn({ oldName: col });
+                                    setNewColumnName(col);
+                                  }}
                                 >
                                   <div className="flex items-center h-full">
-                                    {col}
+                                    {editingColumn &&
+                                    editingColumn.oldName === col ? (
+                                      <form
+                                        onSubmit={async (e) => {
+                                          e.preventDefault();
+                                          if (
+                                            !newColumnName.trim() ||
+                                            newColumnName === col
+                                          ) {
+                                            setEditingColumn(null);
+                                            return;
+                                          }
+                                          try {
+                                            const res = await fetch(
+                                              `${API_URL}/rename_column`,
+                                              {
+                                                method: "POST",
+                                                headers: {
+                                                  "Content-Type":
+                                                    "application/json",
+                                                },
+                                                body: JSON.stringify({
+                                                  table: selectedTable,
+                                                  old_name: col,
+                                                  new_name: newColumnName,
+                                                }),
+                                              },
+                                            );
+                                            const data = await res.json();
+                                            if (res.ok) {
+                                              addToast(
+                                                language === "tr"
+                                                  ? "Sütun adı güncellendi"
+                                                  : "Column renamed",
+                                                "success",
+                                              );
+                                              setEditingColumn(null);
+                                              fetchTableData(
+                                                selectedTable,
+                                                currentPage,
+                                                searchQuery,
+                                              );
+                                            } else {
+                                              addToast(
+                                                data.error || "Hata",
+                                                "error",
+                                              );
+                                            }
+                                          } catch (e) {
+                                            addToast("Sunucu hatası", "error");
+                                          }
+                                        }}
+                                        className="flex items-center gap-1 w-full"
+                                      >
+                                        <input
+                                          className="text-base font-semibold text-gray-800 border-b border-gray-400 focus:outline-none focus:border-primary-500 bg-transparent w-28"
+                                          value={newColumnName}
+                                          autoFocus
+                                          onChange={(e) =>
+                                            setNewColumnName(e.target.value)
+                                          }
+                                          onBlur={(e) => {
+                                            e.preventDefault();
+                                            e.target.form &&
+                                              e.target.form.requestSubmit();
+                                          }}
+                                        />
+                                        <button
+                                          type="submit"
+                                          className="text-emerald-600 text-xs font-medium px-1 py-0.5 hover:underline"
+                                        >
+                                          {language === "tr"
+                                            ? "Kaydet"
+                                            : "Save"}
+                                        </button>
+                                      </form>
+                                    ) : (
+                                      <span
+                                        title={
+                                          language === "tr"
+                                            ? "Sütun adını değiştir"
+                                            : "Rename column"
+                                        }
+                                        className="group-hover:underline"
+                                      >
+                                        {col}
+                                      </span>
+                                    )}
                                   </div>
                                 </th>
                               ))}
